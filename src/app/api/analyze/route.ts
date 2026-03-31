@@ -4,18 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60; // Allow up to 60 seconds for long contracts
 
-export async function POST(req: NextRequest) {
-  console.log("DIAGNOSTIC - API route reached - POST /api/analyze");
+export async function POST(req: Request) {
   try {
-    let body;
-    try {
-      body = await req.json();
-    } catch (e) {
-      console.error("DIAGNOSTIC - Failed to parse request JSON body");
-      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
-    }
-    
-    let { text, imageBase64, imageType } = body;
+    const body = await req.json();
+    const { text, imageBase64, imageType } = body;
 
     if (!text && !imageBase64) {
       return NextResponse.json(
@@ -26,25 +18,20 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are an elite contract analyst with 25 years of experience protecting freelancers, employees, tenants, and small business owners from unfair contracts.
 
-Your job is to analyze contracts clause-by-clause and identify risks, unfair terms, and red flags, while also recognizing fair and standard protections.
-
-## YOUR ANALYSIS RULES:
-
-1. IDENTIFY EVERY DISTINCT CLAUSE in the contract. Don't skip anything.
-
-2. For each clause, determine the risk level:
+Your job is to identify the MOST CRITICAL clauses (limit to 15) that impact the signer. Focus on risks, unfair terms, and red flags, but also acknowledge standard fair terms.
+ 
+ ## YOUR ANALYSIS RULES:
+ 
+ 1. ANALYZE THE MOST IMPORTANT CLAUSES (up to 15). Focus on high-impact areas like Payment, Liability, IP, Termination, and Non-competes.
+ 
+ 2. For each clause, determine the risk level:
    - "safe" — Standard, fair, balanced clause. No concerns.
    - "caution" — Slightly unusual or one-sided. Worth questioning but not a dealbreaker.
    - "danger" — Clearly unfair, heavily one-sided, or could cause serious financial/legal harm to the signer.
 
-3. CRITICAL RULES FOR BALANCED ANALYSIS:
-   - Every contract MUST have at least 2-3 "safe" clauses. Standard boilerplate clauses like "Entire Agreement", "Scope of Work" (when clearly defined), and standard "Amendments must be in writing" are SAFE — do not flag them.
-   - Reserve "danger" for clauses that are genuinely one-sided, financially threatening, or legally harmful. Not every imperfect clause is dangerous.
-   - Use "caution" for clauses that are slightly unusual or worth questioning but not dealbreakers. Portfolio restrictions, standard confidentiality terms, and reasonable dispute resolution clauses are typically "caution" not "danger."
-   - A realistic distribution for a BAD contract: 20-30% safe, 20-30% caution, 40-50% danger.
-   - A realistic distribution for a FAIR contract: 60-70% safe, 20-30% caution, 0-10% danger.
-   - A realistic distribution for a GOOD contract: 80%+ safe, 10-20% caution, 0% danger.
-   - If you flag more than 70% of clauses as "danger", you are being too aggressive. Re-evaluate.
+    - Aim for a realistic mix: No contract is 100% dangerous. Identify at least 3 SAFE or standard clauses to build trust.
+    - Focus on the "Big 5": Payment, Scope, Liability, IP, and Termination.
+    - If you find more than 15 clauses, prioritize the ones that are "danger" or "caution".
 
 4. COMMON RED FLAGS TO WATCH FOR (catch ALL of these):
    - Payment terms longer than 30 days
@@ -127,15 +114,17 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
           },
           {
             type: "text",
-            text: "Analyze this contract image. Extract all text and perform a complete clause-by-clause risk analysis. Return ONLY valid JSON as specified in your instructions.",
+            text: "Analyze the MOST CRITICAL risks and protections in this contract image (limit to 15 clauses). Return ONLY valid JSON as specified in your instructions.",
           },
         ],
       });
     } else {
-      // For text input
+      // For text input — trim to ~25,000 chars to avoid timeout but keep the core contract
+      const trimmedText = text.length > 25000 ? text.substring(0, 25000) + "... [Truncated for speed]" : text;
+      
       messages.push({
         role: "user",
-        content: `Analyze this contract clause-by-clause. Return ONLY valid JSON as specified in your instructions.\n\n--- CONTRACT START ---\n${text}\n--- CONTRACT END ---`,
+        content: `Analyze the critical risks and protections in this contract. Return ONLY valid JSON as specified in your instructions.\n\n--- CONTRACT START ---\n${trimmedText}\n--- CONTRACT END ---`,
       });
     }
 
@@ -167,7 +156,7 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
           model: "gpt-4o-mini",
           messages: messages,
           temperature: 0,
-          max_tokens: 4000,
+          max_tokens: 2500, // Reduced from 4000 for faster generation
           response_format: { type: "json_object" },
         }),
       });

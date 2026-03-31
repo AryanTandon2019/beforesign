@@ -85,16 +85,6 @@ async function fetchWithRobustErrorHandling(
       let errorMessage = "Failed to analyze contract";
       const contentType = response.headers.get("content-type");
       
-      // LOG RAW RESPONSE FOR DEBUGGING
-      try {
-        const rawText = await response.clone().text();
-        console.error("DIAGNOSTIC - Raw Server Response:", rawText.slice(0, 1000));
-        console.error("DIAGNOSTIC - Status:", response.status);
-        console.error("DIAGNOSTIC - Content-Type:", contentType);
-      } catch (e) {
-        console.error("DIAGNOSTIC - Failed to read raw response text");
-      }
-
       if (contentType?.includes("application/json")) {
         try {
           const error = await response.json();
@@ -104,37 +94,35 @@ async function fetchWithRobustErrorHandling(
         }
       } else {
         // Non-JSON error (HTML error page from Vercel/Next.js)
-        try {
-          const text = await response.text();
-          if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-            // Vercel/Next.js error pages are long HTML. Provide a helpful message based on status.
-            if (response.status === 413) {
-              errorMessage = "The document is too large to process. Please crop images or split the document.";
-            } else if (response.status === 504) {
-              errorMessage = "The analysis timed out. This often happens with very long documents. Try a shorter snippet.";
+        if (response.status === 504 || response.status === 502) {
+          errorMessage = "The analysis timed out. For very long contracts, try copying and pasting smaller sections into the TEXT tab.";
+        } else if (response.status === 413) {
+          errorMessage = "The document is too large. Please try a smaller file or a snippet of text.";
+        } else {
+          try {
+            const text = await response.text();
+            if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+              errorMessage = `Server Error (${response.status}). Please try again with a shorter document.`;
             } else {
-              errorMessage = `Server Error (${response.status}): The server encountered an issue. Please try again.`;
+              errorMessage = text.slice(0, 150) || `Error (${response.status}): ${response.statusText}`;
             }
-          } else {
-            errorMessage = text.slice(0, 150) || `Error (${response.status}): ${response.statusText}`;
+          } catch (e) {
+            errorMessage = `Error (${response.status}): ${response.statusText}`;
           }
-        } catch (e) {
-          errorMessage = `Error (${response.status}): ${response.statusText}`;
         }
       }
       throw new Error(errorMessage);
     }
-
+ 
     const contentType = response.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
-      throw new Error("The server returned a response that was not JSON. Please try again.");
+      throw new Error("The server returned an invalid response. Please try again.");
     }
-
+ 
     try {
       return await response.json();
     } catch (e: any) {
-      console.error("DIAGNOSTIC - JSON Parse Failed. Raw body was:", await response.clone().text());
-      throw new Error(`Failed to parse server response: ${e.message}`);
+      throw new Error("Failed to parse the server response. Please try again.");
     }
   } catch (error: any) {
     // Re-throw if it's already our structured error
