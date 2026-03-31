@@ -132,33 +132,63 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
 
     // DEBUG LOGGING (excluding large base64)
     console.log("Analysis Engine: v6-bundler-native");
-    if (text) console.log("Text Input (Snippet):", text.substring(0, 50));
-    if (imageBase64) console.log("Image Input Detected (Base64 Hidden)");
+    if (text) console.log(`Text Input Size: ${text.length} chars`);
+    if (imageBase64) {
+      const sizeMB = (imageBase64.length * 0.75) / (1024 * 1024);
+      console.log(`Image Input Detected: ~${sizeMB.toFixed(2)}MB`);
+    }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: messages,
-        temperature: 0, // Zero temperature for maximum schema adherence
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-      }),
-    });
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("CRITICAL: OPENAI_API_KEY is missing");
+      return NextResponse.json(
+        { error: "Server configuration error: API key is missing. Please check your environment variables." },
+        { status: 500 }
+      );
+    }
+
+    let response;
+    try {
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: messages,
+          temperature: 0,
+          max_tokens: 4000,
+          response_format: { type: "json_object" },
+        }),
+      });
+    } catch (fetchError: any) {
+      console.error("Fetch to OpenAI failed:", fetchError);
+      return NextResponse.json(
+        { error: `Failed to connect to AI service: ${fetchError.message}` },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("OpenAI API error details (v6-stable):", errorData);
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const errorText = await response.text();
+        console.error("OpenAI returned non-JSON error:", errorText);
+        return NextResponse.json(
+          { error: `AI Service Error (${response.status}): ${errorText.slice(0, 100)}` },
+          { status: response.status }
+        );
+      }
       
+      console.error("OpenAI API error details (v6-stable):", errorData);
       const openAIErrorMessage = errorData.error?.message || "Unknown OpenAI error";
       return NextResponse.json(
         { 
-          error: `OpenAI API Error (v6-stable): ${openAIErrorMessage}`,
-          debug_id: "v6-stable-bundler" // Identifies exactly which code version is running
+          error: `OpenAI API Error: ${openAIErrorMessage}`,
+          debug_id: "v6-stable-bundler"
         },
         { status: response.status }
       );

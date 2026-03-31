@@ -67,6 +67,73 @@ async function extractTextFromPDF(file: File): Promise<string> {
   return fullText;
 }
 
+// Helper to consolidate API calls with robust error handling
+async function fetchWithRobustErrorHandling(
+  url: string, 
+  options: RequestInit,
+  payloadSize?: number
+): Promise<ContractAnalysis> {
+  // Rough estimate of payload size in MB
+  if (payloadSize && payloadSize > 4 * 1024 * 1024) {
+    console.warn(`Large payload detected: ${(payloadSize / 1024 / 1024).toFixed(2)}MB`);
+  }
+
+  try {
+    const response = await fetch(url, options);
+    
+    if (!response.ok) {
+      let errorMessage = "Failed to analyze contract";
+      const contentType = response.headers.get("content-type");
+      
+      if (contentType?.includes("application/json")) {
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch (e) {
+          errorMessage = `Error (${response.status}): ${response.statusText}`;
+        }
+      } else {
+        // Non-JSON error (HTML error page from Vercel/Next.js)
+        try {
+          const text = await response.text();
+          if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+            // Vercel/Next.js error pages are long HTML. Provide a helpful message based on status.
+            if (response.status === 413) {
+              errorMessage = "The document is too large to process. Please crop images or split the document.";
+            } else if (response.status === 504) {
+              errorMessage = "The analysis timed out. This often happens with very long documents. Try a shorter snippet.";
+            } else {
+              errorMessage = `Server Error (${response.status}): The server encountered an issue. Please try again.`;
+            }
+          } else {
+            errorMessage = text.slice(0, 150) || `Error (${response.status}): ${response.statusText}`;
+          }
+        } catch (e) {
+          errorMessage = `Error (${response.status}): ${response.statusText}`;
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      throw new Error("The server returned a response that was not JSON. Please try again.");
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    // Re-throw if it's already our structured error
+    if (error instanceof Error && (error.message.includes("Error (") || error.message.includes("too large"))) {
+      throw error;
+    }
+    
+    // Handle network errors or AbortError
+    if (error.name === 'AbortError') throw error;
+    
+    throw new Error(error.message || "Network error: Unable to connect to the analysis engine.");
+  }
+}
+
 // For PDF files
 export async function analyzeContractPDF(
   file: File,
@@ -77,20 +144,14 @@ export async function analyzeContractPDF(
 
   // If text extraction is successful (> 150 characters), send it as text
   if (sanitizedText.length >= 150) {
-    console.log("Sending PDF text to API (v5-stable):", sanitizedText.substring(0, 50));
-    const response = await fetch("/api/analyze", {
+    console.log("Sending PDF text to API (v6):", sanitizedText.substring(0, 50));
+    
+    return fetchWithRobustErrorHandling("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: sanitizedText }),
       signal,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Failed to analyze contract");
-    }
-
-    return response.json();
+    }, sanitizedText.length);
   }
 
   // If extraction returned almost no text, it's likely a scanned/image PDF
@@ -107,7 +168,7 @@ export async function analyzeContractImage(
 ): Promise<ContractAnalysis> {
   const base64 = await fileToBase64(file);
 
-  const response = await fetch("/api/analyze", {
+  return fetchWithRobustErrorHandling("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -115,14 +176,7 @@ export async function analyzeContractImage(
       imageType: file.type,
     }),
     signal,
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to analyze contract");
-  }
-
-  return response.json();
+  }, file.size);
 }
 
 // For pasted text
@@ -130,17 +184,10 @@ export async function analyzeContractText(
   text: string,
   signal?: AbortSignal
 ): Promise<ContractAnalysis> {
-  const response = await fetch("/api/analyze", {
+  return fetchWithRobustErrorHandling("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
     signal,
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to analyze contract");
-  }
-
-  return response.json();
+  }, text.length);
 }
