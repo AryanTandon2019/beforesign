@@ -65,9 +65,40 @@ async function extractTextFromPDF(file: File): Promise<string> {
 
 // For PDF files
 export async function analyzeContractPDF(file: File, signal?: AbortSignal): Promise<ContractAnalysis> {
-  // Extract text on the client side
-  const text = await extractTextFromPDF(file);
+  let text = "";
+  let extractError = null;
 
+  try {
+    // Try text extraction first (fast & cheap)
+    text = await extractTextFromPDF(file);
+  } catch (err) {
+    console.error("PDF text extraction failed:", err);
+    extractError = err;
+  }
+
+  // If extraction failed OR returned almost no text, fallback to multimodal PDF support
+  if (extractError || !text || text.trim().length < 50) {
+    console.log("Empty or failed text extraction, falling back to multimodal PDF analysis...");
+    const base64 = await fileToBase64(file);
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pdfBase64: base64,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to analyze contract");
+    }
+
+    return response.json();
+  }
+
+  // Standard path: send extracted text
   const response = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

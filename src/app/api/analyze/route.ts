@@ -6,11 +6,11 @@ export const maxDuration = 60; // Allow up to 60 seconds for long contracts
 
 export async function POST(req: NextRequest) {
   try {
-    let { text, imageBase64, imageType } = await req.json();
+    let { text, imageBase64, imageType, pdfBase64 } = await req.json();
 
-    if (!text && !imageBase64) {
+    if (!text && !imageBase64 && !pdfBase64) {
       return NextResponse.json(
-        { error: "No contract text or image provided" },
+        { error: "No contract text, image, or PDF provided" },
         { status: 400 }
       );
     }
@@ -105,7 +105,25 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       },
     ];
 
-    if (imageBase64) {
+    if (pdfBase64) {
+      // For PDF input — send PDF directly to GPT-4o-mini native PDF support
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "input_file",
+            input_file: {
+              data: pdfBase64,
+              mime_type: "application/pdf",
+            },
+          },
+          {
+            type: "text",
+            text: "Analyze this contract PDF. Perform a complete clause-by-clause risk analysis. Return ONLY valid JSON as specified in your instructions.",
+          },
+        ],
+      });
+    } else if (imageBase64) {
       // For image input — send image directly to GPT-4o-mini vision
       messages.push({
         role: "user",
