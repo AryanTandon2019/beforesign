@@ -41,17 +41,13 @@ async function fileToBase64(file: File): Promise<string> {
 async function extractTextFromPDF(file: File): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
   
-  // Explicitly set workerSrc to null to signal no worker is available
+  // For version 5.0+, we MUST use the .mjs extension for the worker on CDN
   // @ts-ignore
-  pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.mjs`;
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ 
     data: arrayBuffer,
-    // @ts-ignore
-    stopAtErrors: false,
-    isEvalSupported: false,
-    disableFontFace: true,
   }).promise;
   
   let fullText = "";
