@@ -41,9 +41,13 @@ async function fileToBase64(file: File): Promise<string> {
 async function extractTextFromPDF(file: File): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
   
-  // Official jsDelivr CDN path for version 5.6.205
+  // v6-bundler-native: Use Next.js/Webpack native worker loading
+  // This bundles the worker file directly into your deployment
   // @ts-ignore
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.mjs",
+    import.meta.url
+  ).toString();
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ 

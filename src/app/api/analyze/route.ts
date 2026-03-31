@@ -131,7 +131,7 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
     }
 
     // DEBUG LOGGING (excluding large base64)
-    console.log("Analyzing contract - v5-stable-no-pdf");
+    console.log("Analysis Engine: v6-bundler-native");
     if (text) console.log("Text Input (Snippet):", text.substring(0, 50));
     if (imageBase64) console.log("Image Input Detected (Base64 Hidden)");
 
@@ -152,13 +152,13 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("OpenAI API error details (v5-stable):", errorData);
+      console.error("OpenAI API error details (v6-stable):", errorData);
       
       const openAIErrorMessage = errorData.error?.message || "Unknown OpenAI error";
       return NextResponse.json(
         { 
-          error: `OpenAI API Error (v5-stable): ${openAIErrorMessage}`,
-          debug_id: "v5-stable-no-pdf" // Identifies exactly which code version is running
+          error: `OpenAI API Error (v6-stable): ${openAIErrorMessage}`,
+          debug_id: "v6-stable-bundler" // Identifies exactly which code version is running
         },
         { status: response.status }
       );
