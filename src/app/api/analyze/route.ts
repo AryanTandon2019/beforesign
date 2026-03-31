@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 60; // Allow up to 60 seconds for long contracts
+export const maxDuration = 300; // Allow up to 300 seconds for long contracts (if plan supports it)
 
 export async function POST(req: Request) {
   try {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     const systemPrompt = `You are an elite contract analyst with 25 years of experience protecting freelancers, employees, tenants, and small business owners from unfair contracts.
 
-Your job is to identify the MOST CRITICAL clauses (limit to 15) that impact the signer. Focus on risks, unfair terms, and red flags, but also acknowledge standard fair terms.
+Your job is to identify the MOST CRITICAL clauses (limit to 12) that impact the signer. Focus on risks, unfair terms, and red flags, but also acknowledge standard fair terms. Be concise to ensure fast analysis.
 
 ## SCORING CALIBRATION — IMPORTANT:
 You must be balanced. Do not be overly aggressive with risk ratings.
@@ -52,7 +52,7 @@ Mark as DANGER only if: the clause is clearly one-sided, could cause serious fin
 
 ## YOUR ANALYSIS RULES:
 
-1. ANALYZE THE MOST IMPORTANT CLAUSES (up to 15). Focus on high-impact areas like Payment, Liability, IP, Termination, and Non-competes.
+1. ANALYZE THE MOST IMPORTANT CLAUSES (up to 12). Focus on high-impact areas like Payment, Liability, IP, Termination, and Non-competes.
 
 2. For each clause, determine the risk level based on the calibration above.
 
@@ -76,9 +76,9 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       "clause_number": <number>,
       "clause_title": "<short title, e.g. 'Payment Terms'>",
       "risk_level": "<safe | caution | danger>",
-      "original_text": "<relevant excerpt from the contract, max 150 words>",
-      "plain_english": "<what this clause means in simple language, 2-3 sentences>",
-      "why_risky": "<only for caution/danger — specifically why this is risky and what could go wrong, 2-3 sentences>",
+      "original_text": "<relevant excerpt from the contract, max 100 words>",
+      "plain_english": "<what this clause means in simple language, 2 sentences>",
+      "why_risky": "<only for caution/danger — specifically why this is risky and what could go wrong, 2 sentences>",
       "suggestion": "<only for caution/danger — exact change to request or question to ask, be specific>"
     }
   ],
@@ -156,7 +156,7 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
           model: "gpt-4o-mini",
           messages: messages,
           temperature: 0,
-          max_tokens: 4000, 
+          max_tokens: 3000, 
           response_format: { type: "json_object" },
         }),
       });
