@@ -69,31 +69,15 @@ export async function analyzeContractPDF(
   file: File,
   signal?: AbortSignal
 ): Promise<ContractAnalysis> {
-  let text = "";
-  let extractError = null;
+  const text = await extractTextFromPDF(file);
+  const sanitizedText = text ? text.trim().replace(/\s+/g, " ") : "";
 
-  try {
-    // Try text extraction first (fast & cheap)
-    text = await extractTextFromPDF(file);
-  } catch (err) {
-    console.error("PDF text extraction failed:", err);
-    extractError = err;
-  }
-
-  // If extraction failed OR returned almost no text, fallback to multimodal PDF support
-  // 150 characters is a safer threshold to distinguish real text from junk metadata
-  const sanitizedText = text ? text.trim().replace(/\s+/g, ' ') : "";
-  
-  if (extractError || sanitizedText.length < 150) {
-    console.log(`Text extraction length (${sanitizedText.length}) below threshold or failed, falling back to multimodal PDF analysis...`);
-    const base64 = await fileToBase64(file);
-
+  // If text extraction is successful (> 150 characters), send it as text
+  if (sanitizedText.length >= 150) {
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        pdfBase64: base64,
-      }),
+      body: JSON.stringify({ text: sanitizedText }),
       signal,
     });
 
@@ -105,20 +89,11 @@ export async function analyzeContractPDF(
     return response.json();
   }
 
-  // Standard path: send extracted text
-  const response = await fetch("/api/analyze", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: sanitizedText }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to analyze contract");
-  }
-
-  return response.json();
+  // If extraction returned almost no text, it's likely a scanned/image PDF
+  // Instead of failing mysteriously, we provide a helpful redirection message
+  throw new Error(
+    "This PDF appears to be a scanned image. For an accurate audit, please take a screenshot and upload it in the IMAGE tab, or copy and paste the text manually in the TEXT tab."
+  );
 }
 
 // For image files (photos of contracts)
