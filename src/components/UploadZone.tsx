@@ -25,11 +25,18 @@ export default function UploadZone({ onAnalyze, isAnalyzing }: UploadZoneProps) 
   };
 
   const validateFile = (file: File) => {
-    // Vercel body limit is 4.5MB. Base64 adds ~33% overhead.
-    // 3MB is a safe limit for images. PDFs are text-extracted but we'll keep it reasonable.
-    const maxSize = 4 * 1024 * 1024; // 4MB
-    if (file.size > maxSize) {
-      setError("Document size exceeds the 4MB limit. Please crop your image or split the document.");
+    // Vercel body limit is 4.5MB. 
+    // For images, we send the whole file (Base64), so 4MB is the strict limit.
+    // For PDFs, we extract text locally, so the original file can be much larger.
+    const isImage = activeTab === "image";
+    const limit = isImage ? 4 * 1024 * 1024 : 25 * 1024 * 1024; // 4MB for images, 25MB for PDFs
+    
+    if (file.size > limit) {
+      setError(
+        isImage 
+          ? "Image exceeds 4MB limit. Please crop it or compress it." 
+          : "PDF exceeds 25MB limit. Please split the document."
+      );
       return;
     }
     setError(null);

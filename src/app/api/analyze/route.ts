@@ -5,8 +5,17 @@ import { NextRequest, NextResponse } from "next/server";
 export const maxDuration = 60; // Allow up to 60 seconds for long contracts
 
 export async function POST(req: NextRequest) {
+  console.log("DIAGNOSTIC - API route reached - POST /api/analyze");
   try {
-    let { text, imageBase64, imageType } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.error("DIAGNOSTIC - Failed to parse request JSON body");
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
+    }
+    
+    let { text, imageBase64, imageType } = body;
 
     if (!text && !imageBase64) {
       return NextResponse.json(

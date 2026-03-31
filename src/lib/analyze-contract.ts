@@ -85,6 +85,16 @@ async function fetchWithRobustErrorHandling(
       let errorMessage = "Failed to analyze contract";
       const contentType = response.headers.get("content-type");
       
+      // LOG RAW RESPONSE FOR DEBUGGING
+      try {
+        const rawText = await response.clone().text();
+        console.error("DIAGNOSTIC - Raw Server Response:", rawText.slice(0, 1000));
+        console.error("DIAGNOSTIC - Status:", response.status);
+        console.error("DIAGNOSTIC - Content-Type:", contentType);
+      } catch (e) {
+        console.error("DIAGNOSTIC - Failed to read raw response text");
+      }
+
       if (contentType?.includes("application/json")) {
         try {
           const error = await response.json();
@@ -120,7 +130,12 @@ async function fetchWithRobustErrorHandling(
       throw new Error("The server returned a response that was not JSON. Please try again.");
     }
 
-    return await response.json();
+    try {
+      return await response.json();
+    } catch (e: any) {
+      console.error("DIAGNOSTIC - JSON Parse Failed. Raw body was:", await response.clone().text());
+      throw new Error(`Failed to parse server response: ${e.message}`);
+    }
   } catch (error: any) {
     // Re-throw if it's already our structured error
     if (error instanceof Error && (error.message.includes("Error (") || error.message.includes("too large"))) {
