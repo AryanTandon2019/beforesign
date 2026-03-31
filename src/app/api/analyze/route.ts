@@ -130,12 +130,10 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       });
     }
 
-    console.log("Analyzing contract with GPT-4o-mini...");
-    
-    if (text) {
-      console.log(`Input text length: ${text.length} characters`);
-      console.log("Input text (snippet):", text.substring(0, 200));
-    }
+    // DEBUG LOGGING (excluding large base64)
+    console.log("Analyzing contract - v5-stable-no-pdf");
+    if (text) console.log("Text Input (Snippet):", text.substring(0, 50));
+    if (imageBase64) console.log("Image Input Detected (Base64 Hidden)");
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -154,11 +152,14 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("OpenAI API error details:", errorData);
+      console.error("OpenAI API error details (v5-stable):", errorData);
       
       const openAIErrorMessage = errorData.error?.message || "Unknown OpenAI error";
       return NextResponse.json(
-        { error: `OpenAI API Error: ${openAIErrorMessage}. Please check your API key and billing.` },
+        { 
+          error: `OpenAI API Error (v5-stable): ${openAIErrorMessage}`,
+          debug_id: "v5-stable-no-pdf" // Identifies exactly which code version is running
+        },
         { status: response.status }
       );
     }

@@ -74,6 +74,7 @@ export async function analyzeContractPDF(
 
   // If text extraction is successful (> 150 characters), send it as text
   if (sanitizedText.length >= 150) {
+    console.log("Sending PDF text to API (v5-stable):", sanitizedText.substring(0, 50));
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
