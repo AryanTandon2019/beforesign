@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: #FFFFFF;
+  --color-foreground: #000000;
+  --color-accent: #FFFF00;
+  --color-border-subtle: #E5E7EB;
+  
+  --font-heading: var(--font-plus-jakarta);
+  --font-body: var(--font-inter);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #FFFFFF;
+  --foreground: #000000;
+  --accent: #FFFF00;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Minimalist Classes */
+.highlighter {
+  background-color: var(--accent);
+  padding: 0 4px;
+}
+
+.modern-card {
+  background: #FFFFFF;
+  border: 1px solid #000000;
+  box-shadow: 4px 4px 0px #000000;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modern-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px #000000;
+}
+
+.modern-button {
+  background: #000000;
+  color: #FFFFFF;
+  padding: 12px 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.2s ease;
+}
+
+.modern-button:hover {
+  background: #FFFF00;
+  color: #000000;
+}
+
+.modern-button-outline {
+  border: 1px solid #000000;
+  color: #000000;
+  padding: 12px 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.2s ease;
+}
+
+.modern-button-outline:hover {
+  background: #000000;
+  color: #FFFFFF;
+}
+
+.blur-text {
+  filter: blur(8px);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+}
+
+.clause-content {
+  transition: filter 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+}
+
+.unlocked {
+  filter: blur(0);
+  opacity: 1;
+}
+
+.blur-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  transition: opacity 0.5s ease;
 }
