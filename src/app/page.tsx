@@ -16,7 +16,7 @@ import { saveAudit, getHistory, deleteAudit, AuditEntry } from "@/lib/history";
 // Replace this with your actual Gumroad product link
 // Replace this with your actual Dodo Payments checkout link
 // Replace this with your actual Dodo Payments checkout link
-const DODO_PAYMENT_URL = "https://test.checkout.dodopayments.com/buy/pdt_0NbgH55LhWDR7ofoD54Wf?quantity=1&redirect_url=https://beforesign.vercel.app?paid=true";
+const DODO_PAYMENT_URL = "https://test.checkout.dodopayments.com/buy/pdt_0NbgH55LhWDR7ofoD54Wf?quantity=1&redirect_url=https://getbeforesign.vercel.app?paid=true";
 
 export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);

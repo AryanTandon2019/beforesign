@@ -39,15 +39,39 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
+import * as pdfjsLib from "pdfjs-dist";
+
+// Set the worker from a CDN for simplicity in Next.js
+// @ts-ignore
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+async function extractTextFromPDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(" ");
+    fullText += pageText + "\n";
+  }
+
+  return fullText;
+}
+
 // For PDF files
 export async function analyzeContractPDF(file: File, signal?: AbortSignal): Promise<ContractAnalysis> {
-  const base64 = await fileToBase64(file);
+  // Extract text on the client side
+  const text = await extractTextFromPDF(file);
 
   const response = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      pdfBase64: base64,
+      text: text,
     }),
     signal,
   });

@@ -1,33 +1,18 @@
 // app/api/analyze/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { extractTextFromPDF } from "@/lib/pdf-parser";
 
 export const maxDuration = 60; // Allow up to 60 seconds for long contracts
 
 export async function POST(req: NextRequest) {
   try {
-    let { text, imageBase64, imageType, pdfBase64 } = await req.json();
+    let { text, imageBase64, imageType } = await req.json();
 
-    if (!text && !imageBase64 && !pdfBase64) {
+    if (!text && !imageBase64) {
       return NextResponse.json(
-        { error: "No contract text, image, or PDF provided" },
+        { error: "No contract text or image provided" },
         { status: 400 }
       );
-    }
-
-    // If PDF is provided, extract text from it
-    if (pdfBase64) {
-      try {
-        const buffer = Buffer.from(pdfBase64, "base64");
-        text = await extractTextFromPDF(buffer);
-      } catch (pdfError: any) {
-        console.error("PDF Extraction error:", pdfError);
-        return NextResponse.json(
-          { error: `PDF Extract Failed: ${pdfError.message || "Unknown error"}` },
-          { status: 400 }
-        );
-      }
     }
 
     const systemPrompt = `You are an elite contract analyst with 25 years of experience protecting freelancers, employees, tenants, and small business owners from unfair contracts.
@@ -145,15 +130,7 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       });
     }
 
-    // Call OpenAI API
     console.log("Analyzing contract with GPT-4o-mini...");
-    if (!text && !imageBase64) {
-      console.error("No input data to analyze");
-      return NextResponse.json(
-        { error: "No input data provided. Please try again." },
-        { status: 400 }
-      );
-    }
     
     if (text) {
       console.log(`Input text length: ${text.length} characters`);
