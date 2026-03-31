@@ -111,8 +111,8 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
         role: "user",
         content: [
           {
-            type: "input_file",
-            input_file: {
+            type: "file",
+            file: {
               data: pdfBase64,
               mime_type: "application/pdf",
             },
