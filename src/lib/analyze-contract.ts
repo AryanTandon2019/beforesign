@@ -39,13 +39,14 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
-import * as pdfjsLib from "pdfjs-dist";
-
-// Set the worker from a CDN for simplicity in Next.js
-// @ts-ignore
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
 async function extractTextFromPDF(file: File): Promise<string> {
+  // Dynamic import to avoid SSR errors with DOMMatrix
+  const pdfjsLib = await import("pdfjs-dist");
+
+  // Set the worker from a CDN
+  // @ts-ignore
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let fullText = "";
