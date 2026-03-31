@@ -37,52 +37,31 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// Extract text from PDF without any external library
-function extractTextFromPDFBinary(arrayBuffer: ArrayBuffer): string {
-  const uint8Array = new Uint8Array(arrayBuffer);
-  const textDecoder = new TextDecoder("utf-8", { fatal: false });
-  const rawText = textDecoder.decode(uint8Array);
+// Extract text from PDF using pdfjs-dist (reliable)
+async function extractTextFromPDF(file: File): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist");
+  
+  // Disable worker to avoid CDN version mismatch
+  // @ts-ignore
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 
-  // Method 1: Extract text between parentheses (PDF text objects)
-  const parenthesesMatches = rawText.match(/\(([^)]{2,})\)/g);
-  let extractedText = "";
-
-  if (parenthesesMatches) {
-    extractedText = parenthesesMatches
-      .map((m) => m.slice(1, -1))
-      .filter((s) => s.length > 1 && /[a-zA-Z]/.test(s))
-      .map((s) =>
-        s
-          .replace(/\\n/g, "\n")
-          .replace(/\\\(/g, "(")
-          .replace(/\\\)/g, ")")
-          .replace(/\\'/g, "'")
-      )
-      .join(" ")
-      .trim();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ 
+    data: arrayBuffer,
+    // @ts-ignore
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
+  
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map((item: any) => item.str).join(" ");
+    fullText += pageText + "\n";
   }
-
-  // Method 2: If method 1 didn't get enough text, try extracting between BT/ET markers
-  if (extractedText.length < 100) {
-    const btEtMatches = rawText.match(/BT[\s\S]*?ET/g);
-    if (btEtMatches) {
-      const btText = btEtMatches
-        .join(" ")
-        .match(/\(([^)]+)\)/g);
-      if (btText) {
-        const altText = btText
-          .map((m) => m.slice(1, -1))
-          .filter((s) => /[a-zA-Z]/.test(s))
-          .join(" ")
-          .trim();
-        if (altText.length > extractedText.length) {
-          extractedText = altText;
-        }
-      }
-    }
-  }
-
-  return extractedText;
+  return fullText;
 }
 
 // For PDF files
@@ -90,17 +69,28 @@ export async function analyzeContractPDF(
   file: File,
   signal?: AbortSignal
 ): Promise<ContractAnalysis> {
-  const arrayBuffer = await file.arrayBuffer();
+  let text = "";
+  let extractError = null;
 
-  // Extract text from PDF binary
-  const text = extractTextFromPDFBinary(arrayBuffer);
+  try {
+    // Try text extraction first (fast & cheap)
+    text = await extractTextFromPDF(file);
+  } catch (err) {
+    console.error("PDF text extraction failed:", err);
+    extractError = err;
+  }
 
-  if (text && text.trim().length > 50) {
-    // We got text — send it to the API
+  // If extraction failed OR returned almost no text, fallback to multimodal PDF support
+  if (extractError || !text || text.trim().length < 50) {
+    console.log("Empty or failed text extraction, falling back to multimodal PDF analysis...");
+    const base64 = await fileToBase64(file);
+
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        pdfBase64: base64,
+      }),
       signal,
     });
 
@@ -108,13 +98,24 @@ export async function analyzeContractPDF(
       const error = await response.json();
       throw new Error(error.error || "Failed to analyze contract");
     }
+
     return response.json();
   }
 
-  // If we couldn't extract text, throw a helpful error
-  throw new Error(
-    "Could not extract text from this PDF. Please try one of these: (1) Open the PDF, select all text (Ctrl+A), copy it, and paste in the TEXT tab. (2) Take a screenshot of the contract and upload in the IMAGE tab."
-  );
+  // Standard path: send extracted text
+  const response = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to analyze contract");
+  }
+
+  return response.json();
 }
 
 // For image files (photos of contracts)

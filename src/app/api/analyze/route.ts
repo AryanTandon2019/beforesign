@@ -174,10 +174,13 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("OpenAI API error:", errorData);
+      console.error("OpenAI API error details:", errorData);
+      
+      // Surface the specific message from OpenAI if available
+      const openAIErrorMessage = errorData.error?.message || "Unknown OpenAI error";
       return NextResponse.json(
-        { error: "Failed to analyze contract. Please try again." },
-        { status: 500 }
+        { error: `OpenAI API Error: ${openAIErrorMessage}. Please check your API key and billing.` },
+        { status: response.status }
       );
     }
 
