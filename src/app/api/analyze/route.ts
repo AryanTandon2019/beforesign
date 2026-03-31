@@ -156,7 +156,7 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
           model: "gpt-4o-mini",
           messages: messages,
           temperature: 0,
-          max_tokens: 2500, // Reduced from 4000 for faster generation
+          max_tokens: 4000, 
           response_format: { type: "json_object" },
         }),
       });
@@ -202,22 +202,48 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       );
     }
 
-    // Parse and validate the JSON response
+    // Function to strip markdown and clean potential AI response artifacts
+    const cleanAIResponse = (rawContent: string) => {
+      let cleaned = rawContent.trim();
+      // Remove markdown code blocks if present
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```json/, "").replace(/^```/, "").replace(/```$/, "");
+      }
+      return cleaned.trim();
+    };
+
     let analysis;
+    const cleanedContent = cleanAIResponse(content);
     try {
-      analysis = JSON.parse(content);
+      analysis = JSON.parse(cleanedContent);
     } catch (e) {
-      console.error("Failed to parse AI response as JSON:", content);
+      console.error("Failed to parse AI response as JSON:", cleanedContent);
       return NextResponse.json(
-        { error: "AI returned an invalid response format. Please try again." },
+        { 
+          error: "AI yielded an unreadable result. Please try clicking 'Analyze' again.",
+          debug: {
+            raw_preview: cleanedContent.slice(0, 500) + "..."
+          }
+        },
         { status: 500 }
       );
     }
 
-    if (!analysis.clauses || typeof analysis.overall_score !== 'number') {
-      console.error("Incomplete JSON response from GPT-4o-mini:", analysis);
+    // Convert string score to number if necessary
+    if (typeof analysis.overall_score === 'string') {
+      analysis.overall_score = parseInt(analysis.overall_score, 10);
+    }
+
+    if (!analysis.clauses || isNaN(analysis.overall_score)) {
+      console.error("Incomplete JSON response from contract analyzer:", analysis);
       return NextResponse.json(
-        { error: "The AI was unable to generate a complete audit for this document. Please ensure it's a clear contract and try again." },
+        { 
+          error: "The AI produced an incomplete audit. This usually happens with extremely complex files. Please try again.",
+          debug: {
+            score_type: typeof analysis.overall_score,
+            has_clauses: !!analysis.clauses
+          }
+        },
         { status: 500 }
       );
     }
