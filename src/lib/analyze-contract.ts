@@ -81,8 +81,11 @@ export async function analyzeContractPDF(
   }
 
   // If extraction failed OR returned almost no text, fallback to multimodal PDF support
-  if (extractError || !text || text.trim().length < 50) {
-    console.log("Empty or failed text extraction, falling back to multimodal PDF analysis...");
+  // 150 characters is a safer threshold to distinguish real text from junk metadata
+  const sanitizedText = text ? text.trim().replace(/\s+/g, ' ') : "";
+  
+  if (extractError || sanitizedText.length < 150) {
+    console.log(`Text extraction length (${sanitizedText.length}) below threshold or failed, falling back to multimodal PDF analysis...`);
     const base64 = await fileToBase64(file);
 
     const response = await fetch("/api/analyze", {
@@ -106,7 +109,7 @@ export async function analyzeContractPDF(
   const response = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text: sanitizedText }),
     signal,
   });
 

@@ -152,9 +152,7 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
     
     if (text) {
       console.log(`Input text length: ${text.length} characters`);
-      if (text.length < 20) {
-        console.warn("Input text is very short:", text);
-      }
+      console.log("Input text (snippet):", text.substring(0, 200));
     }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -166,9 +164,9 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: messages,
-        temperature: 0.1, // Low temperature for consistent, accurate analysis
-        max_tokens: 4096,
-        response_format: { type: "json_object" }, // Force JSON output
+        temperature: 0, // Zero temperature for maximum schema adherence
+        max_tokens: 4000,
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -176,7 +174,6 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
       const errorData = await response.json();
       console.error("OpenAI API error details:", errorData);
       
-      // Surface the specific message from OpenAI if available
       const openAIErrorMessage = errorData.error?.message || "Unknown OpenAI error";
       return NextResponse.json(
         { error: `OpenAI API Error: ${openAIErrorMessage}. Please check your API key and billing.` },
@@ -189,19 +186,27 @@ Return ONLY valid JSON. No markdown. No backticks. No explanation text outside t
 
     if (!content) {
       return NextResponse.json(
-        { error: "No analysis generated. Please try again." },
+        { error: "No analysis generated. AI returned an empty response." },
         { status: 500 }
       );
     }
 
-    // Parse the JSON response
-    const analysis = JSON.parse(content);
+    // Parse and validate the JSON response
+    let analysis;
+    try {
+      analysis = JSON.parse(content);
+    } catch (e) {
+      console.error("Failed to parse AI response as JSON:", content);
+      return NextResponse.json(
+        { error: "AI returned an invalid response format. Please try again." },
+        { status: 500 }
+      );
+    }
 
-    // Validate the response has required fields
-    if (!analysis.clauses || !analysis.overall_score) {
+    if (!analysis.clauses || typeof analysis.overall_score !== 'number') {
       console.error("Incomplete JSON response from GPT-4o-mini:", analysis);
       return NextResponse.json(
-        { error: "Incomplete analysis. Please try again." },
+        { error: "The AI was unable to generate a complete audit for this document. Please ensure it's a clear contract and try again." },
         { status: 500 }
       );
     }
